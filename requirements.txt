@@ -1,0 +1,11 @@
+# N통합 발행기 — Python 3.12 의존성
+PySide6>=6.6.0
+playwright>=1.40.0
+anthropic>=0.40.0
+openai>=1.30.0
+Pillow>=10.0.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+imageio-ffmpeg>=0.4.9
+kiwipiepy>=0.17.0
+qt-material>=2.14

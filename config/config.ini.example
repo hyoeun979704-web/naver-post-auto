@@ -1,0 +1,291 @@
+[CAFE]
+cafe_url = https://cafe.naver.com/ps2power
+board_name = 자유 보드(VIP 게시판)
+cafe_id = 10174516
+menu_id = 664
+board_url = 
+cafe_list = https://cafe.naver.com/getamped2 https://cafe.naver.com/f-e/cafes/10174516/menus/664?viewType=L\nhttps://cafe.naver.com/ps2power https://cafe.naver.com/f-e/cafes/10278718/menus/330?viewType=I
+account_list =
+onec_brand = 새집느낌
+onec_viewpoint = 고객
+
+[POSTING]
+delay = 60
+publish_type = 즉시 발행
+cafe_postings_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/postings_cafe
+blog_postings_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/postings_blog
+onec_delay = 300
+one_delay = 0
+one_img_count = 18
+one_reprocess = 1
+oneb_img_count = 18
+oneb_delay = 60
+
+[NETWORK]
+network_mode = wifi
+
+[STYLE]
+font_size = 16
+align = center
+
+[AUTH]
+username =
+password =
+
+[IMAGE]
+offset_x = 5
+offset_y = 0
+bg_height = 725
+text1 = 울산입주청소
+text2 = 1660-0240
+font_name = 맑은 고딕 Bold
+font_color = #3AB2EB
+outline = 보통
+font_size1 = 104
+font_size2 = 85
+text1_y = 795
+text2_y = 935
+bg_path = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/가족사랑클린 썸네일 가공 전
+output_path = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/가족사랑클린 썸네일 가공 후(사용완료)
+template = 새집느낌
+
+[GENERATOR]
+openai_api_key = 
+claude_api_key =
+cafe_model = claude-haiku-4-5
+cafe_prompt = 당신은 네이버 카페 포스팅 원고를 작성하는 전문 작가입니다.
+	
+	[원고 규칙]
+	1. 15~20자마다 줄바꿈 (Enter 1번)
+	2. 문단 사이는 빈 줄 1개 (문단 구분)
+	3. 총 글자수 800자 내외
+	4. 자연스러운 후기 형식 (경험담)
+	5. 이미지 위치에는 숫자만 한 줄에 작성 (0, 1, 2, ...)
+	6. "인용구 : 청소 전" 과 "인용구 : 청소 후" 를 적절한 위치에 포함
+	
+	[원고 구조]
+	제목 : {키워드} 관련 제목
+	
+	0
+	
+	도입부 텍스트 (3~5줄)
+	
+	인용구 : 청소 전
+	
+	1
+	
+	청소 전 상태 설명 (3~5줄)
+	
+	2
+	
+	청소 전 상태 설명 (3~5줄)
+	
+	3
+	
+	업체 선택/상담 과정 (3~5줄)
+	
+	인용구 : 청소 후
+	
+	4
+	
+	청소 후 과정 설명 (3~5줄)
+	
+	5
+	
+	청소 후 과정 설명 (3~5줄)
+	
+	6
+	
+	결과/변화 설명 (3~5줄)
+	
+	7
+	
+	후기/추천 (3~5줄)
+	
+	8
+	
+	마무리 멘트 (3~5줄)
+	
+	[중요]
+	- 각 줄은 15~20자 이내
+	- 빈 줄로 문단 구분
+	- 숫자(0~8)는 이미지 위치
+	- 숫자 0은 썸네일 1~2는 청소전 3~8은 청소 후
+	- "인용구 : " 뒤에 텍스트는 인용구 블록으로 변환됨
+	- 인용구는 청소 전 , 청소 후 에 한개씩 넣어줘
+	- 광고성 표현 자제, 자연스러운 후기 톤
+cafe_image_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진
+blog_save_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/원고
+blog_model = claude-sonnet-4-6
+cafe_thumb_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/썸네일 가공 후
+cafe_before_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-1
+cafe_after_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-1
+cafe_before_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-1
+cafe_before_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-2
+cafe_before_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-3
+cafe_after_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-1
+cafe_after_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-2
+cafe_after_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-3
+blog_brand = 새집느낌
+cafe_before_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-4
+cafe_before_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-5
+cafe_after_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-4
+cafe_after_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-5
+template = 청소
+
+[BLOG]
+package_output = C:/Users/User/OneDrive/Desktop/패키징완료
+pack_thumb_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/썸네일 가공 후
+pack_before_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-1
+pack_after_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-1
+pack_video_dir = 
+account_list =
+pack_before_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-1
+pack_before_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-2
+pack_before_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-3
+pack_after_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-1
+pack_after_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-2
+pack_after_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-3
+intra_account_interval = 2500
+account_switch_wait = 2500
+uploads_per_account = 1
+tethering_enabled = 0
+secret_mode = 1
+pack_before_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-4
+pack_before_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-5
+pack_after_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-4
+pack_after_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-5
+
+[VIDEO]
+output_dir = C:/Users/User/OneDrive/Desktop/패키징완료
+
+[IMAGE_SAEJIP]
+bg_path = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/썸네일 가공 전
+output_path = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/썸네일 가공 후
+text1 = 울산입주청소
+text2 = 1660-0240
+font_name = 맑은 고딕 Bold
+font_color = #3AB2EB
+outline = 보통
+font_size1 = 104
+font_size2 = 85
+text1_y = 795
+text2_y = 935
+offset_x = 5
+offset_y = 0
+bg_height = 725
+cafe_thumb_dir = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\썸네일 가공 후
+cafe_before_dir_1 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-1
+cafe_before_dir_2 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-2
+cafe_before_dir_3 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-3
+cafe_after_dir_1 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-1
+cafe_after_dir_2 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-2
+cafe_after_dir_3 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-3
+pack_thumb_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/썸네일 가공 후
+pack_before_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-1
+pack_before_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-2
+pack_before_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-3
+pack_after_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-1
+pack_after_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-2
+pack_after_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-3
+pack_before_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-4
+pack_before_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-5
+pack_after_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-4
+pack_after_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-5
+cafe_before_dir_4 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-4
+cafe_before_dir_5 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-5
+cafe_after_dir_4 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-4
+cafe_after_dir_5 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-5
+
+[IMAGE_FAMILY]
+bg_path = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/가족사랑클린 썸네일 가공 전
+output_path = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/가족사랑클린 썸네일 가공 후
+text1 = 서초구 입주청소
+text2 = 
+font_name = 맑은 고딕 Bold
+font_color = #22C55E
+outline = 매우 두껍게
+font_size1 = 120
+font_size2 = 85
+text1_y = 600
+text2_y = 960
+offset_x = 0
+offset_y = 0
+bg_height = 650
+cafe_thumb_dir = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\썸네일 가공 후
+cafe_before_dir_1 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-1
+cafe_before_dir_2 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-2
+cafe_before_dir_3 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-3
+cafe_after_dir_1 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-1
+cafe_after_dir_2 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-2
+cafe_after_dir_3 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-3
+pack_thumb_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/가족사랑클린 썸네일 가공 후
+pack_before_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-1
+pack_before_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-2
+pack_before_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-3
+pack_after_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-1
+pack_after_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-2
+pack_after_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-3
+pack_before_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-4
+pack_before_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-5
+pack_after_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-4
+pack_after_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-5
+cafe_before_dir_4 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-4
+cafe_before_dir_5 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업전-5
+cafe_after_dir_4 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-4
+cafe_after_dir_5 = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\작업후-5
+
+[AUTO_COMMENT]
+account_list =
+urls = https://cafe.naver.com/f-e/cafes/25415683/menus/12?viewType=L
+keywords = 
+pool = 
+use_ai = 1
+interval_min = 5
+delay_min = 5
+delay_max = 15
+
+[TEMPLATE_포장이사]
+cafe_img_count = 9
+blog_img_count = 18
+one_img_count = 18
+oneb_img_count = 18
+onec_img_count = 9
+
+[TEMPLATE_청소]
+cafe_img_count = 9
+blog_img_count = 18
+one_img_count = 18
+oneb_img_count = 18
+onec_img_count = 9
+
+[IMAGE_PACKING]
+bg_path = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\포장이사 썸네일 가공 전
+output_path = 
+text1 = 평택 포장이사
+text2 = 
+font_name = 맑은 고딕 Bold
+font_color = #FFFFFF
+outline = 매우 두껍게
+font_size1 = 130
+font_size2 = 85
+text1_y = 150
+text2_y = 960
+offset_x = 90
+offset_y = -40
+bg_height = 650
+pack_thumb_dir = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/썸네일 가공 후
+pack_before_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-1
+pack_before_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-2
+pack_before_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-3
+pack_before_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-4
+pack_before_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업전-5
+pack_after_dir_1 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-1
+pack_after_dir_2 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-2
+pack_after_dir_3 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-3
+pack_after_dir_4 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-4
+pack_after_dir_5 = C:/Users/User/OneDrive/Desktop/포스팅 자동화/사진/작업후-5
+
+[PACKING]
+photo_dir = C:\Users\User\OneDrive\Desktop\포스팅 자동화\사진\포장이사
+

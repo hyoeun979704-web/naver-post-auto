@@ -1,0 +1,38 @@
+# ── 시크릿 / 로컬 설정 ──────────────────────────────
+# 실제 운영 config (API 키·계정 비밀번호 포함) — 절대 커밋 금지.
+# 템플릿은 config/config.ini.example 사용.
+config/config.ini
+config/config.ini.bak
+
+# 로그인 쿠키 (PID별 JSON)
+cookies/
+naver_cookies_*.json
+
+# 자동 댓글 상태 파일
+config/auto_comment_state.json
+
+# ── 런타임 산출물 ──────────────────────────────────
+# 발행 로그
+log/*.txt
+
+# 생성된 원고 / 작업 큐 (런타임 데이터)
+postings_cafe/*/
+postings_blog/*/
+postings_done_cafe/*/
+postings_failed_cafe/*/
+postings_done_blog/*/
+postings_failed_blog/*/
+
+# ── Python ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── OS / 에디터 ────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
