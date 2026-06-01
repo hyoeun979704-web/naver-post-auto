@@ -34,6 +34,8 @@ from core.browser import NaverBrowser
 from core.poster import post_to_cafe
 from core.tethering import toggle_tethering, get_current_ip
 from core.template_parser import list_postings
+from core import seo_generator
+from core.cafe_editor import fetch_my_articles, edit_article_replace
 
 CONFIG_PATH = os.path.join(BASE_DIR, 'config', 'config.ini')
 POSTINGS_DIR = os.path.join(BASE_DIR, 'postings_cafe')
@@ -312,6 +314,7 @@ class CafePosterQt(QMainWindow):
         self.tabs.addTab(self._build_blog_auto_tab(), "블로그발행(자동)")
         self.tabs.addTab(self._build_cafe_gen_tab(), "카페 원고생성기")
         self.tabs.addTab(self._build_publish_tab(), "카페 발행(자동)")
+        self.tabs.addTab(self._build_cafe_edit_tab(), "카페 글수정(SEO)")
         self.tabs.addTab(self._build_auto_comment_tab(), "카페 자동댓글")
         self.tabs.addTab(self._build_image_reprocess_tab(), "이미지 재가공")
         # 원큐 3종은 맨 앞으로 삽입 (패키징 → 블로그 → 카페)
@@ -4100,6 +4103,270 @@ class CafePosterQt(QMainWindow):
             pass
         self._bridge.set_enabled.emit(self.pub_start_btn, True)
         self._bridge.set_enabled.emit(self.pub_stop_btn, False)
+
+    # ═══════ 카페 글수정(SEO) 탭 ═══════
+    # 플로우: 로그인 → 내가 쓴 게시글 → 제목 키워드('세종') 추적·선택
+    #         → 새 원고(SEO 생성) + 지정 폴더 이미지 순서매칭으로 게시물 수정 → 발행
+    def _build_cafe_edit_tab(self):
+        tab = QWidget()
+        splitter = QSplitter(Qt.Horizontal)
+        left = QWidget()
+        lv = QVBoxLayout(left)
+
+        # 계정 (카페 발행 탭과 동일 계정 목록 공유, 첫 계정 사용)
+        g_acc = QGroupBox("계정 (첫 번째 계정 사용)")
+        v_acc = QVBoxLayout(g_acc)
+        self.cedit_accounts = QTextEdit()
+        self.cedit_accounts.setMaximumHeight(56)
+        self.cedit_accounts.setPlainText((self._cfg('CAFE', 'account_list') or '').replace('\\n', '\n'))
+        self.cedit_accounts.setPlaceholderText("아이디 | 비밀번호")
+        v_acc.addWidget(self.cedit_accounts)
+        lv.addWidget(g_acc)
+
+        # 대상 카페 + 추적 키워드
+        g_t = QGroupBox("대상 — 내가 쓴 게시글 추적")
+        f_t = QFormLayout(g_t); f_t.setLabelAlignment(Qt.AlignRight)
+        self.cedit_cafe_id = QLineEdit(self._cfg('CAFE', 'cafe_id', ''))
+        self.cedit_cafe_id.setPlaceholderText("예: 10174516")
+        f_t.addRow("카페 ID", self.cedit_cafe_id)
+        self.cedit_track_kw = QLineEdit('세종')
+        self.cedit_track_kw.setPlaceholderText("제목에 이 단어가 들어간 내 글만")
+        f_t.addRow("추적 키워드", self.cedit_track_kw)
+        btn_fetch = QPushButton("내 글 불러오기")
+        btn_fetch.setStyleSheet("background-color: #3498db; color: white; font-size: 12px; padding: 6px; border-radius: 5px; border: none;")
+        btn_fetch.clicked.connect(self._on_fetch_my_articles)
+        self.cedit_fetch_btn = btn_fetch
+        f_t.addRow("", btn_fetch)
+        lv.addWidget(g_t)
+
+        # 글 목록 (체크)
+        g_l = QGroupBox("내 글 목록 (체크해서 선택)")
+        v_l = QVBoxLayout(g_l)
+        self.cedit_list = QListWidget()
+        self.cedit_list.setMaximumHeight(150)
+        self.cedit_list.setSelectionMode(QAbstractItemView.NoSelection)
+        v_l.addWidget(self.cedit_list)
+        sel_row = QHBoxLayout()
+        b_all = QPushButton("전체 선택"); b_all.setFixedWidth(80); b_all.setStyleSheet("font-size:11px;padding:4px;")
+        b_all.clicked.connect(lambda: self._toggle_edit_list(True))
+        b_none = QPushButton("전체 해제"); b_none.setFixedWidth(80); b_none.setStyleSheet("font-size:11px;padding:4px;")
+        b_none.clicked.connect(lambda: self._toggle_edit_list(False))
+        sel_row.addWidget(b_all); sel_row.addWidget(b_none); sel_row.addStretch()
+        v_l.addLayout(sel_row)
+        lv.addWidget(g_l)
+
+        # 새 원고 생성 설정
+        g_g = QGroupBox("새 원고 생성 (SEO)")
+        f_g = QFormLayout(g_g); f_g.setLabelAlignment(Qt.AlignRight)
+        self.cedit_category = QComboBox()
+        for label, key in [('청소 계열', 'clean'), ('포장이사', 'move'), ('인터넷가입', 'internet')]:
+            self.cedit_category.addItem(label, key)
+        f_g.addRow("카테고리", self.cedit_category)
+        self.cedit_style = QComboBox()
+        for label, key in [('하이브리드', 'hybrid'), ('가이드형', 'guide'), ('후기형', 'review')]:
+            self.cedit_style.addItem(label, key)
+        f_g.addRow("글 스타일", self.cedit_style)
+        self.cedit_region = QLineEdit('세종')
+        f_g.addRow("지역", self.cedit_region)
+        self.cedit_seo_kw = QLineEdit('입주청소')
+        f_g.addRow("핵심 키워드", self.cedit_seo_kw)
+        self.cedit_industry = QLineEdit('입주청소')
+        f_g.addRow("업종", self.cedit_industry)
+        lv.addWidget(g_g)
+
+        # 이미지 폴더 (순서매칭) + 딜레이
+        g_i = QGroupBox("이미지 / 딜레이")
+        v_i = QVBoxLayout(g_i)
+        img_row = QHBoxLayout()
+        img_row.addWidget(QLabel("이미지 폴더"))
+        self.cedit_img_dir = QLineEdit(self._cfg('CAFE', 'cafe_thumb_dir', ''))
+        self.cedit_img_dir.setPlaceholderText("이 폴더의 사진을 마커 자리에 순서대로 삽입")
+        img_row.addWidget(self.cedit_img_dir, 1)
+        b_pick = QPushButton("폴더"); b_pick.setFixedWidth(50)
+        b_pick.clicked.connect(lambda: self._pick_folder(self.cedit_img_dir))
+        img_row.addWidget(b_pick)
+        v_i.addLayout(img_row)
+        v_i.addWidget(QLabel("순서매칭: 폴더 파일을 이름순 정렬해 각 글의 [이미지]/[배너] 마커 자리에 차례로 넣습니다"))
+        d_row = QHBoxLayout()
+        d_row.addWidget(QLabel("글 사이 딜레이"))
+        self.cedit_delay = QSpinBox(); self.cedit_delay.setRange(5, 86400); self.cedit_delay.setValue(60)
+        self.cedit_delay.setSuffix("초"); self.cedit_delay.setFixedWidth(110)
+        d_row.addWidget(self.cedit_delay); d_row.addStretch()
+        v_i.addLayout(d_row)
+        lv.addWidget(g_i)
+
+        # 시작 / 중지
+        btn_row = QHBoxLayout()
+        self.cedit_start_btn = QPushButton("선택 글 수정 시작")
+        self.cedit_start_btn.setStyleSheet("background-color: #e94560; color: white; font-size: 12px; font-weight: bold; padding: 8px; border-radius: 6px; border: none;")
+        self.cedit_start_btn.clicked.connect(self._on_run_edit)
+        btn_row.addWidget(self.cedit_start_btn)
+        self.cedit_stop_btn = QPushButton("중지"); self.cedit_stop_btn.setEnabled(False)
+        self.cedit_stop_btn.clicked.connect(self._on_stop_edit)
+        btn_row.addWidget(self.cedit_stop_btn)
+        lv.addLayout(btn_row)
+        lv.addStretch()
+
+        right = QWidget()
+        rv = QVBoxLayout(right)
+        rv.addWidget(QLabel("실행 로그"))
+        self.cedit_log = QTextEdit(); self.cedit_log.setReadOnly(True)
+        self.cedit_log.setFont(QFont("Consolas", 9))
+        rv.addWidget(self.cedit_log)
+
+        splitter.addWidget(left); splitter.addWidget(right)
+        splitter.setSizes([380, 420])
+        lay = QVBoxLayout(tab); lay.addWidget(splitter)
+        self.cedit_articles = []
+        self.cedit_stop = False
+        return tab
+
+    def _toggle_edit_list(self, checked: bool):
+        st = Qt.Checked if checked else Qt.Unchecked
+        for i in range(self.cedit_list.count()):
+            self.cedit_list.item(i).setCheckState(st)
+
+    def _populate_edit_list(self, articles):
+        self.cedit_articles = articles or []
+        self.cedit_list.clear()
+        for a in self.cedit_articles:
+            item = QListWidgetItem(f"[{a['article_id']}] {a['title']}")
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Checked)
+            item.setData(Qt.UserRole, a)
+            self.cedit_list.addItem(item)
+        self._log_to(self.cedit_log, f"목록 {len(self.cedit_articles)}건 표시", '#00b894')
+
+    def _checked_edit_articles(self):
+        out = []
+        for i in range(self.cedit_list.count()):
+            it = self.cedit_list.item(i)
+            if it.checkState() == Qt.Checked:
+                out.append(it.data(Qt.UserRole))
+        return out
+
+    def _on_fetch_my_articles(self):
+        accounts = self._parse_account_list(self.cedit_accounts.toPlainText())
+        if not accounts:
+            self._log_to(self.cedit_log, "계정을 입력해주세요 (아이디 | 비밀번호)", '#ff6b6b'); return
+        cafe_id = self.cedit_cafe_id.text().strip()
+        if not cafe_id:
+            self._log_to(self.cedit_log, "카페 ID를 입력해주세요", '#ff6b6b'); return
+        kw = self.cedit_track_kw.text().strip()
+        self._bridge.set_enabled.emit(self.cedit_fetch_btn, False)
+
+        def do():
+            browser = NaverBrowser()
+            try:
+                user, pw = accounts[0]
+                self._log_to(self.cedit_log, f"[{user}] 로그인 중...", '#fdcb6e')
+                if not browser.login_manual(username=user, password=pw,
+                                            callback=lambda m: self._log_to(self.cedit_log, m)):
+                    self._log_to(self.cedit_log, "로그인 실패", '#ff6b6b'); return
+                page = browser.start_headless()
+                arts = fetch_my_articles(page, cafe_id, kw,
+                                         log_callback=lambda m: self._log_to(self.cedit_log, m))
+                QTimer.singleShot(0, lambda: self._populate_edit_list(arts))
+            except Exception as e:
+                self._log_to(self.cedit_log, f"[에러] {e}", '#ff6b6b')
+            finally:
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+                self._bridge.set_enabled.emit(self.cedit_fetch_btn, True)
+        threading.Thread(target=do, daemon=True).start()
+
+    def _on_run_edit(self):
+        selected = self._checked_edit_articles()
+        if not selected:
+            self._log_to(self.cedit_log, "체크된 글이 없습니다 (먼저 '내 글 불러오기')", '#ff6b6b'); return
+        accounts = self._parse_account_list(self.cedit_accounts.toPlainText())
+        if not accounts:
+            self._log_to(self.cedit_log, "계정을 입력해주세요", '#ff6b6b'); return
+        claude_key = self._cfg('GENERATOR', 'claude_api_key', '').strip()
+        if not claude_key:
+            self._log_to(self.cedit_log, "Claude API 키가 없습니다 (설정에서 등록)", '#ff6b6b'); return
+        cafe_id = self.cedit_cafe_id.text().strip()
+        img_dir = self.cedit_img_dir.text().strip()
+        region = self.cedit_region.text().strip()
+        seo_kw = self.cedit_seo_kw.text().strip()
+        industry = self.cedit_industry.text().strip()
+        category = self.cedit_category.currentData()
+        style = self.cedit_style.currentData()
+        model = (self._cfg('GENERATOR', 'seo_model', '').strip()
+                 or self._cfg('GENERATOR', 'blog_model', '').strip()
+                 or 'claude-sonnet-4-20250514')
+        delay = self.cedit_delay.value()
+
+        self.cedit_stop = False
+        self._bridge.set_enabled.emit(self.cedit_start_btn, False)
+        self._bridge.set_enabled.emit(self.cedit_stop_btn, True)
+
+        def do():
+            import time as _t
+            browser = NaverBrowser()
+            try:
+                user, pw = accounts[0]
+                self._log_to(self.cedit_log, f"[{user}] 로그인 중...", '#fdcb6e')
+                if not browser.login_manual(username=user, password=pw,
+                                            callback=lambda m: self._log_to(self.cedit_log, m)):
+                    self._log_to(self.cedit_log, "로그인 실패", '#ff6b6b'); return
+                page = browser.start_headless()
+                total = len(selected)
+                for idx, art in enumerate(selected):
+                    if self.cedit_stop:
+                        self._log_to(self.cedit_log, "중지됨", '#ff6b6b'); break
+                    self._log_to(self.cedit_log, f"[{idx+1}/{total}] 새 원고 생성: {art['title'][:24]}", '#00cec9')
+                    try:
+                        article = seo_generator.generate_article(
+                            claude_key, region=region, keyword=seo_kw, industry=industry,
+                            category=category, style=style, model=model,
+                            callback=lambda m: self._log_to(self.cedit_log, m),
+                            stop_check=lambda: self.cedit_stop)
+                    except Exception as e:
+                        self._log_to(self.cedit_log, f"[실패] 생성 오류: {e}", '#ff6b6b'); continue
+                    if not article:
+                        self._log_to(self.cedit_log, "[실패] 빈 원고 — 건너뜀", '#ff6b6b'); continue
+                    new_title, _meta, body = seo_generator.split_title_body(article)
+                    if not new_title:
+                        new_title = art['title']
+                    ok = edit_article_replace(
+                        page, cafe_id, art.get('menu_id', ''), art['article_id'],
+                        new_title, body, image_folder=img_dir,
+                        log_callback=lambda m: self._log_to(
+                            self.cedit_log, m,
+                            '#00b894' if '[완료]' in m else '#ff6b6b' if '[실패]' in m else '#00cec9'),
+                        stop_check=lambda: self.cedit_stop)
+                    QTimer.singleShot(0, lambda i=idx, ok=ok: self._mark_edit_done(i, ok))
+                    if idx < total - 1 and not self.cedit_stop:
+                        for _ in range(delay):
+                            if self.cedit_stop:
+                                break
+                            _t.sleep(1)
+                self._log_to(self.cedit_log, "수정 작업 완료!", '#00b894')
+            except Exception as e:
+                self._log_to(self.cedit_log, f"[에러] {e}", '#ff6b6b')
+            finally:
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+                self._bridge.set_enabled.emit(self.cedit_start_btn, True)
+                self._bridge.set_enabled.emit(self.cedit_stop_btn, False)
+        threading.Thread(target=do, daemon=True).start()
+
+    def _mark_edit_done(self, idx: int, ok: bool):
+        if 0 <= idx < self.cedit_list.count():
+            it = self.cedit_list.item(idx)
+            it.setText(("✅ " if ok else "❌ ") + it.text())
+            it.setCheckState(Qt.Unchecked)
+
+    def _on_stop_edit(self):
+        self.cedit_stop = True
+        self._log_to(self.cedit_log, "[중지] 요청", '#ff6b6b')
+        self._bridge.set_enabled.emit(self.cedit_start_btn, True)
+        self._bridge.set_enabled.emit(self.cedit_stop_btn, False)
 
     # ═══════ 블로그 원고 생성 ═══════
     def _show_cafe_prompt(self):
