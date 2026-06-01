@@ -2,15 +2,15 @@
 
 import json
 import os
+import sys
 import time
 import random
 from playwright.sync_api import sync_playwright, BrowserContext, Page
 
 
-# 여러 인스턴스 동시 실행 지원: PID 기반 고유 경로
+# 여러 인스턴스 동시 실행 지원: PID 기반 고유 쿠키 경로
 _PID = os.getpid()
 COOKIES_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cookies', f'naver_cookies_{_PID}.json')
-PROFILE_DIR = f'C:\\CafePoster_Profile_{_PID}'
 
 
 def _find_chrome_path():
@@ -157,17 +157,18 @@ class NaverBrowser:
 
             time.sleep(random.uniform(1.0, 1.5))
 
-            # 캡스락 해제 (Windows API)
-            try:
-                import ctypes
-                VK_CAPITAL = 0x14
-                if ctypes.windll.user32.GetKeyState(VK_CAPITAL) & 1:
-                    ctypes.windll.user32.keybd_event(VK_CAPITAL, 0x45, 1, 0)
-                    ctypes.windll.user32.keybd_event(VK_CAPITAL, 0x45, 3, 0)
-                    if callback:
-                        callback("[I] 캡스락 해제됨")
-            except Exception:
-                pass
+            # 캡스락 해제 (Windows 전용 API — 다른 OS에선 스킵)
+            if sys.platform == 'win32':
+                try:
+                    import ctypes
+                    VK_CAPITAL = 0x14
+                    if ctypes.windll.user32.GetKeyState(VK_CAPITAL) & 1:
+                        ctypes.windll.user32.keybd_event(VK_CAPITAL, 0x45, 1, 0)
+                        ctypes.windll.user32.keybd_event(VK_CAPITAL, 0x45, 3, 0)
+                        if callback:
+                            callback("[I] 캡스락 해제됨")
+                except Exception:
+                    pass
 
             # 아이디/비밀번호 자동 입력
             if username and password:
@@ -271,9 +272,12 @@ class NaverBrowser:
         return os.path.exists(COOKIES_PATH)
 
     def start_headless(self, visible: bool = False) -> Page:
-        """발행용 브라우저.
-        visible=True : 창이 보이게 (테스트/디버깅 용)
-        visible=False: 화면 밖으로 밀어 숨김 (기본)
+        """발행용 브라우저 시작.
+
+        주의: 이름은 'headless'지만 실제로는 항상 headless=False로 띄운다.
+        네이버 자동화 감지를 피하려면 실제 렌더링되는 창이 필요하기 때문.
+          visible=True : 창을 화면에 보이게 (테스트/디버깅 용)
+          visible=False: 창을 화면 밖(-9999,-9999)으로 밀어 숨김 (기본)
         """
         self._playwright = sync_playwright().start()
 

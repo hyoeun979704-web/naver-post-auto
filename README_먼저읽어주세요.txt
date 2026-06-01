@@ -2,6 +2,13 @@
   N통합 발행기 — 새 PC 설치 가이드
 ==============================================
 
+[ 동작 환경 ]
+
+  * Windows 전용 (Windows 10/11)
+  * Python 3.12
+  → PowerShell·ctypes 등 Windows API에 의존하므로 macOS/Linux에서는 동작하지 않습니다.
+
+
 [ 처음 사용 시 — 1번만 ]
 
   install.bat 더블클릭
