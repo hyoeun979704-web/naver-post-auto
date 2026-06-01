@@ -387,7 +387,7 @@ def _looks_cut(text):
 
 
 def call_claude(user_text, system, claude_key, model='claude-sonnet-4-20250514',
-                max_tokens=1500, callback=None):
+                max_tokens=1500):
     """한 섹션 생성. system 동일 → 프롬프트 캐싱. 토큰 한도로 잘리면 이어받아 완성."""
     import anthropic
     client = anthropic.Anthropic(api_key=claude_key)
@@ -419,7 +419,10 @@ def generate_article(claude_key, region='', keyword='', industry='', company='',
                      category='clean', style='hybrid', overrides=None,
                      model='claude-sonnet-4-20250514', callback=None,
                      stop_check=None):
-    """6개 섹션을 순차 생성해 한 편으로 합친 본문 문자열 반환.
+    """6개 섹션을 순차 생성해 한 편으로 합친다.
+
+    반환: (article, complete) — complete 는 6개 섹션이 모두 생성됐는지 여부.
+    한 섹션이라도 실패/중지로 빠지면 complete=False (부분 원고를 발행에 쓰지 않도록).
 
     region/keyword/industry/company 가 주어지면 프리셋 기본값 위에 덮어쓴다.
     overrides: 추가로 덮어쓸 필드 dict (diff/steps/prices/reviews/cta/authority/longtail).
@@ -452,15 +455,20 @@ def generate_article(claude_key, region='', keyword='', industry='', company='',
         tail = ('\n\n'.join(acc))[-500:]
         task = build_task(block, inputs, tail)
         try:
-            acc.append(clean_section(call_claude(task, system, claude_key, model=model, callback=callback)))
+            acc.append(clean_section(call_claude(task, system, claude_key, model=model)))
         except Exception as e:
             if callback:
                 callback(f"[!] 생성 오류 ({block['label']}): {e}")
             break
-    article = '\n\n'.join([s for s in acc if s])
-    if article and callback:
-        callback(f"[I] 글 생성 완료 ({len(article)}자)")
-    return article
+    filled = [s for s in acc if s]
+    complete = (len(filled) == len(BLOCKS))
+    article = '\n\n'.join(filled)
+    if callback:
+        if complete:
+            callback(f"[I] 글 생성 완료 ({len(article)}자)")
+        elif article:
+            callback(f"[!] 미완성 — {len(filled)}/{len(BLOCKS)} 섹션만 생성됨 (발행 건너뜀)")
+    return article, complete
 
 
 # ─────────────────────────────────────────────────────────────
@@ -472,8 +480,10 @@ def split_title_body(article):
 
     - '메타 설명:' 줄 → meta
     - 그 다음의 첫 비어있지 않은 일반 텍스트 줄(미디어 마커·번호·▶ 제외) → 제목 후보
-    제목을 못 찾으면 빈 문자열.
+    제목 후보가 60자를 넘으면(모델이 제목 대신 도입 문단을 먼저 쓴 경우) 제목으로 쓰지 않고
+    빈 문자열을 돌려 해당 줄을 본문에 남긴다 → 호출부가 기존 제목으로 폴백하게 한다.
     """
+    TITLE_MAX = 60
     meta = ''
     title = ''
     lines = (article or '').split('\n')
@@ -485,11 +495,15 @@ def split_title_body(article):
         m = re.match(r'^메타\s*설명\s*[:：]\s*(.+)$', s)
         if m and not meta:
             meta = m.group(1).strip()
+            body_start = idx + 1  # 메타 줄까지는 본문에서 제외
             continue
         # 제목 후보: 마커/번호/체크기호가 아닌 첫 문장
-        if not title and not s.startswith('[') and not s.startswith('▶') and not re.match(r'^\d+\.', s):
-            title = s.strip().strip('"\'')
-            body_start = idx + 1
+        if not s.startswith('[') and not s.startswith('▶') and not re.match(r'^\d+\.', s):
+            cand = s.strip('"\'')
+            if len(cand) <= TITLE_MAX:
+                title = cand
+                body_start = idx + 1
+            # 너무 길면 제목으로 쓰지 않고(빈 문자열) 이 줄을 본문에 남긴다
             break
     body = '\n'.join(lines[body_start:]).strip()
     return title, meta, body

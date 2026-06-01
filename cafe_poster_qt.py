@@ -35,7 +35,7 @@ from core.poster import post_to_cafe
 from core.tethering import toggle_tethering, get_current_ip
 from core.template_parser import list_postings
 from core import seo_generator
-from core.cafe_editor import fetch_my_articles, edit_article_replace
+from core.cafe_editor import fetch_my_articles, edit_article_replace, list_folder_images
 
 CONFIG_PATH = os.path.join(BASE_DIR, 'config', 'config.ini')
 POSTINGS_DIR = os.path.join(BASE_DIR, 'postings_cafe')
@@ -4145,12 +4145,13 @@ class CafePosterQt(QMainWindow):
         self.cedit_list = QListWidget()
         self.cedit_list.setMaximumHeight(150)
         self.cedit_list.setSelectionMode(QAbstractItemView.NoSelection)
+        self.cedit_list.setStyleSheet(self._posting_list_style())
         v_l.addWidget(self.cedit_list)
         sel_row = QHBoxLayout()
         b_all = QPushButton("전체 선택"); b_all.setFixedWidth(80); b_all.setStyleSheet("font-size:11px;padding:4px;")
-        b_all.clicked.connect(lambda: self._toggle_edit_list(True))
+        b_all.clicked.connect(lambda: self._toggle_postings(self.cedit_list, True))
         b_none = QPushButton("전체 해제"); b_none.setFixedWidth(80); b_none.setStyleSheet("font-size:11px;padding:4px;")
-        b_none.clicked.connect(lambda: self._toggle_edit_list(False))
+        b_none.clicked.connect(lambda: self._toggle_postings(self.cedit_list, False))
         sel_row.addWidget(b_all); sel_row.addWidget(b_none); sel_row.addStretch()
         v_l.addLayout(sel_row)
         lv.addWidget(g_l)
@@ -4172,6 +4173,14 @@ class CafePosterQt(QMainWindow):
         f_g.addRow("핵심 키워드", self.cedit_seo_kw)
         self.cedit_industry = QLineEdit('입주청소')
         f_g.addRow("업종", self.cedit_industry)
+        # 선택한 글들은 모두 위 단일 주제(지역·키워드·업종)로 재생성된다.
+        # 서로 다른 주제의 글을 한 배치로 돌리면 원래 주제가 덮어써지므로, 기본은 '기존 제목 유지'.
+        self.cedit_keep_title = QCheckBox("기존 제목 유지 (생성 제목으로 덮어쓰지 않음)")
+        self.cedit_keep_title.setChecked(True)
+        f_g.addRow("", self.cedit_keep_title)
+        warn = QLabel("선택한 글은 모두 위 주제로 재생성됩니다. 주제가 다른 글은 배치를 나눠 돌리세요.")
+        warn.setStyleSheet("color:#fdcb6e; font-size:10px;"); warn.setWordWrap(True)
+        f_g.addRow("", warn)
         lv.addWidget(g_g)
 
         # 이미지 폴더 (순서매칭) + 딜레이
@@ -4186,7 +4195,9 @@ class CafePosterQt(QMainWindow):
         b_pick.clicked.connect(lambda: self._pick_folder(self.cedit_img_dir))
         img_row.addWidget(b_pick)
         v_i.addLayout(img_row)
-        v_i.addWidget(QLabel("순서매칭: 폴더 파일을 이름순 정렬해 각 글의 [이미지]/[배너] 마커 자리에 차례로 넣습니다"))
+        note = QLabel("순서매칭: 폴더 파일을 이름순으로, 선택한 글들에 걸쳐 앞에서부터 차례로 소비합니다 (글마다 다른 사진).")
+        note.setWordWrap(True)
+        v_i.addWidget(note)
         d_row = QHBoxLayout()
         d_row.addWidget(QLabel("글 사이 딜레이"))
         self.cedit_delay = QSpinBox(); self.cedit_delay.setRange(5, 86400); self.cedit_delay.setValue(60)
@@ -4221,29 +4232,19 @@ class CafePosterQt(QMainWindow):
         self.cedit_stop = False
         return tab
 
-    def _toggle_edit_list(self, checked: bool):
-        st = Qt.Checked if checked else Qt.Unchecked
-        for i in range(self.cedit_list.count()):
-            self.cedit_list.item(i).setCheckState(st)
-
     def _populate_edit_list(self, articles):
+        # 발행 탭과 동일한 체크리스트 헬퍼(_toggle_postings/_checked_postings/_mark_posting_done)를
+        # 그대로 쓰기 위해 표시명을 'name' 키에 담는다.
         self.cedit_articles = articles or []
         self.cedit_list.clear()
         for a in self.cedit_articles:
-            item = QListWidgetItem(f"[{a['article_id']}] {a['title']}")
+            a['name'] = f"[{a['article_id']}] {a['title']}"
+            item = QListWidgetItem(a['name'])
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Checked)
             item.setData(Qt.UserRole, a)
             self.cedit_list.addItem(item)
         self._log_to(self.cedit_log, f"목록 {len(self.cedit_articles)}건 표시", '#00b894')
-
-    def _checked_edit_articles(self):
-        out = []
-        for i in range(self.cedit_list.count()):
-            it = self.cedit_list.item(i)
-            if it.checkState() == Qt.Checked:
-                out.append(it.data(Qt.UserRole))
-        return out
 
     def _on_fetch_my_articles(self):
         accounts = self._parse_account_list(self.cedit_accounts.toPlainText())
@@ -4278,7 +4279,7 @@ class CafePosterQt(QMainWindow):
         threading.Thread(target=do, daemon=True).start()
 
     def _on_run_edit(self):
-        selected = self._checked_edit_articles()
+        selected = self._checked_postings(self.cedit_list)
         if not selected:
             self._log_to(self.cedit_log, "체크된 글이 없습니다 (먼저 '내 글 불러오기')", '#ff6b6b'); return
         accounts = self._parse_account_list(self.cedit_accounts.toPlainText())
@@ -4294,6 +4295,7 @@ class CafePosterQt(QMainWindow):
         industry = self.cedit_industry.text().strip()
         category = self.cedit_category.currentData()
         style = self.cedit_style.currentData()
+        keep_title = self.cedit_keep_title.isChecked()
         model = (self._cfg('GENERATOR', 'seo_model', '').strip()
                  or self._cfg('GENERATOR', 'blog_model', '').strip()
                  or 'claude-sonnet-4-20250514')
@@ -4313,32 +4315,39 @@ class CafePosterQt(QMainWindow):
                                             callback=lambda m: self._log_to(self.cedit_log, m)):
                     self._log_to(self.cedit_log, "로그인 실패", '#ff6b6b'); return
                 page = browser.start_headless()
+                # 이미지 폴더는 한 번만 스캔하고, 글마다 앞에서부터 소비(같은 사진 중복 방지)
+                img_queue = list_folder_images(img_dir)
                 total = len(selected)
                 for idx, art in enumerate(selected):
                     if self.cedit_stop:
                         self._log_to(self.cedit_log, "중지됨", '#ff6b6b'); break
                     self._log_to(self.cedit_log, f"[{idx+1}/{total}] 새 원고 생성: {art['title'][:24]}", '#00cec9')
                     try:
-                        article = seo_generator.generate_article(
+                        article, complete = seo_generator.generate_article(
                             claude_key, region=region, keyword=seo_kw, industry=industry,
                             category=category, style=style, model=model,
                             callback=lambda m: self._log_to(self.cedit_log, m),
                             stop_check=lambda: self.cedit_stop)
                     except Exception as e:
-                        self._log_to(self.cedit_log, f"[실패] 생성 오류: {e}", '#ff6b6b'); continue
-                    if not article:
-                        self._log_to(self.cedit_log, "[실패] 빈 원고 — 건너뜀", '#ff6b6b'); continue
-                    new_title, _meta, body = seo_generator.split_title_body(article)
-                    if not new_title:
-                        new_title = art['title']
-                    ok = edit_article_replace(
+                        self._log_to(self.cedit_log, f"[실패] 생성 오류: {e}", '#ff6b6b')
+                        QTimer.singleShot(0, lambda a=art: self._mark_posting_done(self.cedit_list, a, False))
+                        continue
+                    if not complete:
+                        # 미완성 원고로 기존 글을 덮어쓰면 손실 → 건너뜀
+                        self._log_to(self.cedit_log, "[실패] 원고 미완성 — 기존 글 유지(건너뜀)", '#ff6b6b')
+                        QTimer.singleShot(0, lambda a=art: self._mark_posting_done(self.cedit_list, a, False))
+                        continue
+                    gen_title, _meta, body = seo_generator.split_title_body(article)
+                    new_title = art['title'] if keep_title else (gen_title or art['title'])
+                    ok, used = edit_article_replace(
                         page, cafe_id, art.get('menu_id', ''), art['article_id'],
-                        new_title, body, image_folder=img_dir,
+                        new_title, body, image_paths=img_queue,
                         log_callback=lambda m: self._log_to(
                             self.cedit_log, m,
                             '#00b894' if '[완료]' in m else '#ff6b6b' if '[실패]' in m else '#00cec9'),
                         stop_check=lambda: self.cedit_stop)
-                    QTimer.singleShot(0, lambda i=idx, ok=ok: self._mark_edit_done(i, ok))
+                    img_queue = img_queue[used:]  # 사용한 만큼 큐에서 제거
+                    QTimer.singleShot(0, lambda a=art, ok=ok: self._mark_posting_done(self.cedit_list, a, ok))
                     if idx < total - 1 and not self.cedit_stop:
                         for _ in range(delay):
                             if self.cedit_stop:
@@ -4356,15 +4365,9 @@ class CafePosterQt(QMainWindow):
                 self._bridge.set_enabled.emit(self.cedit_stop_btn, False)
         threading.Thread(target=do, daemon=True).start()
 
-    def _mark_edit_done(self, idx: int, ok: bool):
-        if 0 <= idx < self.cedit_list.count():
-            it = self.cedit_list.item(idx)
-            it.setText(("✅ " if ok else "❌ ") + it.text())
-            it.setCheckState(Qt.Unchecked)
-
     def _on_stop_edit(self):
         self.cedit_stop = True
-        self._log_to(self.cedit_log, "[중지] 요청", '#ff6b6b')
+        self._log_to(self.cedit_log, "[중지] 요청 — 진행 중 작업이 끝나면 중단", '#ff6b6b')
         self._bridge.set_enabled.emit(self.cedit_start_btn, True)
         self._bridge.set_enabled.emit(self.cedit_stop_btn, False)
 

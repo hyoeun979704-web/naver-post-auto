@@ -19,6 +19,7 @@ import random
 from playwright.sync_api import Page
 
 # 본문 입력·이미지 업로드는 기존 발행 모듈 로직을 재사용
+from . import poster
 from .poster import _human_type, _upload_image, _sp, RISKY_WORD_PATH
 from .template_parser import apply_risky_words
 
@@ -45,6 +46,7 @@ def build_ops(body: str, image_paths: list):
     - 미디어 마커 줄 → ('image', 경로)  (남은 이미지가 있을 때만; 없으면 마커 줄 제거)
     - 그 외 → ('text', 줄)
     연속 텍스트 줄은 묶어서 하나의 text op 로 합쳐 _human_type 에 그대로 전달.
+    image_paths 는 마커 수만큼만 앞에서부터 소비한다(마커보다 이미지가 많으면 남는 건 무시).
     """
     imgs = list(image_paths)
     ops = []
@@ -64,7 +66,7 @@ def build_ops(body: str, image_paths: list):
             continue
         text_buf.append(raw)
     flush()
-    return ops, imgs  # 남은 이미지(imgs)는 본문 끝에 붙일지 호출부가 결정
+    return ops
 
 
 def fetch_my_articles(page: Page, cafe_id: str, keyword: str = '',
@@ -176,17 +178,24 @@ def _enter_edit_page(page: Page, cafe_id: str, menu_id: str, article_id: str, lo
         log(f"  [경고] 상세→수정 진입 실패: {e}")
 
     # 2) edit URL 직접 (boardType=L 의 write 에디터가 article id 로 수정 모드)
+    #    menu_id 가 비어도(목록 링크에 메뉴가 없던 경우) 메뉴 없는 형태로 폴백 시도
+    edit_urls = []
     if menu_id:
-        for edit_url in (
+        edit_urls += [
             f'https://cafe.naver.com/ca-fe/cafes/{cafe_id}/menus/{menu_id}/articles/{article_id}/edit?boardType=L',
             f'https://cafe.naver.com/ca-fe/cafes/{cafe_id}/menus/{menu_id}/articles/write?articleId={article_id}&boardType=L',
-        ):
-            try:
-                page.goto(edit_url, timeout=30000)
-                page.wait_for_selector(title_sel, timeout=15000, state='visible')
-                return True
-            except Exception:
-                continue
+        ]
+    edit_urls += [
+        f'https://cafe.naver.com/ca-fe/cafes/{cafe_id}/articles/{article_id}/edit?boardType=L',
+        f'https://cafe.naver.com/ca-fe/cafes/{cafe_id}/articles/write?articleId={article_id}&boardType=L',
+    ]
+    for edit_url in edit_urls:
+        try:
+            page.goto(edit_url, timeout=30000)
+            page.wait_for_selector(title_sel, timeout=15000, state='visible')
+            return True
+        except Exception:
+            continue
     return False
 
 
@@ -223,23 +232,31 @@ def _focus_body(page: Page) -> bool:
 
 
 def edit_article_replace(page: Page, cafe_id: str, menu_id: str, article_id: str,
-                         new_title: str, new_body: str, image_folder: str = '',
-                         log_callback=None, stop_check=None) -> bool:
+                         new_title: str, new_body: str, image_paths=None,
+                         log_callback=None, stop_check=None):
     """글 수정 페이지 진입 → 제목/본문/이미지 전체 교체 → 등록.
 
-    new_body: 미디어 마커가 포함된 본문. 마커 자리에 image_folder 의 이미지를 순서대로 삽입.
+    new_body: 미디어 마커가 포함된 본문. 마커 자리에 image_paths 의 이미지를 순서대로 삽입.
+    image_paths: 이 글에 쓸 이미지 경로 리스트(마커 수만큼 앞에서부터 소비).
+    반환: (성공여부, 사용한 이미지 수) — 호출부가 배치 큐에서 소비량을 빼는 데 사용.
     """
+    image_paths = image_paths or []
+
     def log(m):
         if log_callback:
             log_callback(m)
 
+    # 본문 타이핑은 poster._human_type 를 재사용하는데, 이 함수는 poster 모듈 전역
+    # _global_stop_check 를 본다. 이번 작업의 중지 플래그를 연결해 타이핑 중에도 중지가 먹게 한다.
+    poster._global_stop_check = stop_check
+
     if stop_check and stop_check():
-        return False
+        return (False, 0)
 
     log(f"[시작] 수정: {article_id} / {new_title[:30]}")
     if not _enter_edit_page(page, cafe_id, menu_id, article_id, log):
         log(f"[실패] {article_id}: 수정 에디터 진입 실패")
-        return False
+        return (False, 0)
     _sp(1, 2)
 
     title_sel = 'textarea[placeholder*="제목"], input[placeholder*="제목"]'
@@ -264,12 +281,12 @@ def edit_article_replace(page: Page, cafe_id: str, menu_id: str, article_id: str
         log("[진행] 제목 교체 완료")
     except Exception as e:
         log(f"[실패] {article_id}: 제목 입력 실패 - {e}")
-        return False
+        return (False, 0)
 
     # 2) 본문 포커스 + 기존 본문 전체 삭제
     if not _focus_body(page):
         log(f"[실패] {article_id}: 본문 포커스 실패")
-        return False
+        return (False, 0)
     try:
         page.keyboard.press('Control+a')
         _sp(0.2, 0.3)
@@ -280,15 +297,15 @@ def edit_article_replace(page: Page, cafe_id: str, menu_id: str, article_id: str
         pass
 
     # 3) 새 본문 입력 (텍스트 + 이미지 순차)
-    images = list_folder_images(image_folder)
-    ops, leftover = build_ops(new_body, images)
-    if image_folder:
-        log(f"[진행] 본문 입력 — 이미지 {len(images) - len(leftover)}/{len(images)}장 사용 예정")
+    ops = build_ops(new_body, image_paths)
+    used = sum(1 for kind, _ in ops if kind == 'image')
+    if image_paths:
+        log(f"[진행] 본문 입력 — 이미지 {used}장 삽입")
 
     for kind, payload in ops:
         if stop_check and stop_check():
             log("[중지] 사용자 중지")
-            return False
+            return (False, used)
         if kind == 'text':
             content = apply_risky_words(payload, RISKY_WORD_PATH)
             _human_type(page, content)
@@ -302,16 +319,15 @@ def edit_article_replace(page: Page, cafe_id: str, menu_id: str, article_id: str
                 pass
             _sp(0.1, 0.2)
 
-    # 남은 이미지는 본문 끝에 이어 붙임 (마커보다 이미지가 많을 때)
-    for img in leftover:
-        if stop_check and stop_check():
-            return False
-        _upload_image(page, img)
-        _sp(1, 1.5)
-
     # 4) 등록(수정 완료)
     _sp(1, 2)
-    page.on('dialog', lambda d: d.accept())
+    # dialog 핸들러는 page 당 한 번만 등록 (글마다 호출되어도 누적되지 않도록)
+    if not getattr(page, '_cedit_dialog_bound', False):
+        page.on('dialog', lambda d: d.accept())
+        try:
+            page._cedit_dialog_bound = True
+        except Exception:
+            pass
     try:
         clicked = page.evaluate("""
             () => {
@@ -329,15 +345,15 @@ def edit_article_replace(page: Page, cafe_id: str, menu_id: str, article_id: str
         log(f"[진행] 등록 클릭: {clicked}")
         if not clicked:
             log(f"[실패] {article_id}: 등록 버튼 못 찾음")
-            return False
+            return (False, used)
         _sp(3, 5)
     except Exception as e:
         log(f"[실패] {article_id}: 등록 실패 - {e}")
-        return False
+        return (False, used)
 
     cur = page.url
     if 'write' not in cur and 'edit' not in cur:
         log(f"[완료] {article_id} 수정 발행: {cur}")
     else:
         log(f"[완료] {article_id} (URL 확인 필요: {cur})")
-    return True
+    return (True, used)
